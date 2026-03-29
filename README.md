@@ -2,6 +2,8 @@
 
 Projeto de **Kanban Board** desenvolvido como atividade prática da disciplina de **Qualidade de Software** (IFBA). O projeto demonstra a aplicação de técnicas de refatoração, princípios SOLID, análise estática com ESLint e testes automatizados com Jest, visando melhoria contínua da qualidade do código.
 
+<img width="1920" height="898" alt="image" src="https://github.com/user-attachments/assets/68009550-482c-4d14-a3d3-12b134cac347" />
+
 ---
 
 ## Tecnologias
