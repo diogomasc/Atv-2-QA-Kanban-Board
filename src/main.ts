@@ -5,20 +5,13 @@ import {
   setupCreateModal,
   setupEditForm,
   setupFilters,
-} from "./board.js";
+} from './board.js';
 
-console.log("kanban app iniciando...");
-
-document.addEventListener("DOMContentLoaded", async function () {
-  console.log("DOM carregado, inicializando componentes");
-
+document.addEventListener('DOMContentLoaded', async (): Promise<void> => {
   setupCreateModal();
   setupColumns();
   setupCreateForm();
   setupEditForm();
   setupFilters();
-
   await renderBoard();
-
-  console.log("app inicializado com sucesso");
 });
