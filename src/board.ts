@@ -1,4 +1,4 @@
-import { Task, TaskPriority, TaskStatus, TaskFilter, TASK_STATUS } from './models.js';
+import { Task, TaskPriority, TaskStatus, TaskFilter, UpdateTaskData, TASK_STATUS } from './models.js';
 import {
   fetchAllTasks,
   createTask,
@@ -29,6 +29,12 @@ const COLUMN_STATUS_MAP: Readonly<Record<string, TaskStatus>> = {
   'col-open': TASK_STATUS.OPEN,
   'col-in-progress': TASK_STATUS.IN_PROGRESS,
   'col-done': TASK_STATUS.DONE,
+};
+
+const STATUS_COLUMN_MAP: Record<string, 'open' | 'inProgress' | 'done'> = {
+  'open': 'open',
+  'in-progress': 'inProgress',
+  'done': 'done',
 };
 
 // --- Estado ---
@@ -121,6 +127,12 @@ function showEmptyMessage(): void {
   cols.done.innerHTML = msg;
 }
 
+function appendCardToColumn(task: Task, cols: { open: HTMLElement; inProgress: HTMLElement; done: HTMLElement }): void {
+  const colKey = STATUS_COLUMN_MAP[task.status] ?? 'open';
+  const card = buildTaskCard(task);
+  cols[colKey].appendChild(card);
+}
+
 function distributeTasksByColumn(tasks: Task[]): void {
   const cols = getColumns();
   if (cols === null) {
@@ -132,14 +144,7 @@ function distributeTasksByColumn(tasks: Task[]): void {
     return;
   }
   for (const task of tasks) {
-    const card = buildTaskCard(task);
-    if (task.status === TASK_STATUS.OPEN) {
-      cols.open.appendChild(card);
-    } else if (task.status === TASK_STATUS.IN_PROGRESS) {
-      cols.inProgress.appendChild(card);
-    } else if (task.status === TASK_STATUS.DONE) {
-      cols.done.appendChild(card);
-    }
+    appendCardToColumn(task, cols);
   }
 }
 
@@ -313,18 +318,28 @@ export function setupCreateForm(): void {
 }
 
 // --- Modal de Edição ---
+const EDIT_FIELD_DEFAULTS: ReadonlyArray<[string, keyof Task, string]> = [
+  ['edit-title', 'title', ''],
+  ['edit-desc', 'description', ''],
+  ['edit-assignee', 'assignee', ''],
+  ['edit-deadline', 'deadline', ''],
+  ['edit-status', 'status', 'open'],
+  ['edit-priority', 'priority', 'medium'],
+];
+
+function populateEditFields(task: Task): void {
+  for (const [id, key, fallback] of EDIT_FIELD_DEFAULTS) {
+    setInputValue(id, String(task[key] || fallback));
+  }
+}
+
 function openEditModal(task: Task): void {
   currentEditId = task.id;
   const modal = document.getElementById('edit-modal');
   if (modal === null) {
     return;
   }
-  setInputValue('edit-title', task.title ?? '');
-  setInputValue('edit-desc', task.description ?? '');
-  setInputValue('edit-assignee', task.assignee ?? '');
-  setInputValue('edit-deadline', task.deadline ?? '');
-  setInputValue('edit-status', task.status ?? 'open');
-  setInputValue('edit-priority', task.priority ?? 'medium');
+  populateEditFields(task);
   modal.classList.add('open');
 }
 
@@ -335,37 +350,42 @@ function setInputValue(id: string, value: string): void {
   }
 }
 
+function collectEditFormData(): UpdateTaskData {
+  return {
+    title: getInputValue('edit-title'),
+    description: getInputValue('edit-desc'),
+    assignee: getInputValue('edit-assignee'),
+    deadline: getInputValue('edit-deadline'),
+    status: getInputValue('edit-status', 'open') as TaskStatus,
+    priority: getInputValue('edit-priority', 'medium') as TaskPriority,
+  };
+}
+
+async function handleEditSubmit(e: Event): Promise<void> {
+  e.preventDefault();
+  if (currentEditId === null) {
+    return;
+  }
+  const data = collectEditFormData();
+  if (data.title === '') {
+    alert('Título é obrigatório');
+    return;
+  }
+  const updated = await updateTask(currentEditId, data);
+  if (updated !== null) {
+    closeEditModal();
+    await renderBoard();
+  } else {
+    alert('Erro ao atualizar tarefa');
+  }
+}
+
 export function setupEditForm(): void {
   const form = document.getElementById('edit-form');
   if (form === null) {
     return;
   }
-  form.addEventListener('submit', async (e: Event): Promise<void> => {
-    e.preventDefault();
-    if (currentEditId === null) {
-      return;
-    }
-    const title = getInputValue('edit-title');
-    if (title === '') {
-      alert('Título é obrigatório');
-      return;
-    }
-    const updated = await updateTask(currentEditId, {
-      title,
-      description: getInputValue('edit-desc'),
-      assignee: getInputValue('edit-assignee'),
-      deadline: getInputValue('edit-deadline'),
-      status: getInputValue('edit-status', 'open') as TaskStatus,
-      priority: getInputValue('edit-priority', 'medium') as TaskPriority,
-    });
-    if (updated !== null) {
-      closeEditModal();
-      await renderBoard();
-    } else {
-      alert('Erro ao atualizar tarefa');
-    }
-  });
-
+  form.addEventListener('submit', handleEditSubmit);
   const closeBtn = document.getElementById('edit-modal-close');
   if (closeBtn !== null) {
     closeBtn.addEventListener('click', (): void => {

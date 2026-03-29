@@ -16,6 +16,16 @@ interface CountRow {
   count: number;
 }
 
+interface TaskRow {
+  title: string;
+  description: string;
+  assignee: string;
+  deadline: string;
+  status: string;
+  priority: string;
+  created_at: string;
+}
+
 export interface ITaskRepository {
   findAll(filter: TaskFilter): Task[];
   findById(id: number): Task | undefined;
@@ -25,6 +35,42 @@ export interface ITaskRepository {
   remove(id: number): boolean;
   getStats(): Stats;
 }
+
+const CREATE_DEFAULTS: Readonly<TaskRow> = {
+  title: '',
+  description: '',
+  assignee: '',
+  deadline: '',
+  status: TASK_STATUS.OPEN,
+  priority: TASK_PRIORITY.MEDIUM,
+  created_at: '',
+};
+
+function buildCreateRow(data: CreateTaskData): TaskRow {
+  return {
+    ...CREATE_DEFAULTS,
+    ...data,
+    created_at: new Date().toISOString(),
+  };
+}
+
+function mergeUpdateData(data: UpdateTaskData, existing: Task): TaskRow {
+  return {
+    title: existing.title,
+    description: existing.description,
+    assignee: existing.assignee,
+    deadline: existing.deadline,
+    status: existing.status,
+    priority: existing.priority,
+    created_at: existing.created_at,
+    ...Object.fromEntries(
+      Object.entries(data).filter(([, v]): boolean => v !== undefined)
+    ),
+  };
+}
+
+const INSERT_SQL = 'INSERT INTO tasks (title, description, assignee, deadline, status, priority, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)';
+const UPDATE_SQL = 'UPDATE tasks SET title = ?, description = ?, assignee = ?, deadline = ?, status = ?, priority = ? WHERE id = ?';
 
 export class TaskRepository implements ITaskRepository {
   private readonly dbService: IDatabaseService;
@@ -48,22 +94,11 @@ export class TaskRepository implements ITaskRepository {
 
   public create(data: CreateTaskData): Task {
     const db = this.dbService.getInstance();
-    const status = data.status ?? TASK_STATUS.OPEN;
-    const priority = data.priority ?? TASK_PRIORITY.MEDIUM;
-    const createdAt = new Date().toISOString();
-
-    const result = db.prepare(
-      'INSERT INTO tasks (title, description, assignee, deadline, status, priority, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(
-      data.title,
-      data.description ?? '',
-      data.assignee ?? '',
-      data.deadline ?? '',
-      status,
-      priority,
-      createdAt
+    const row = buildCreateRow(data);
+    const result = db.prepare(INSERT_SQL).run(
+      row.title, row.description, row.assignee,
+      row.deadline, row.status, row.priority, row.created_at
     );
-
     log('repository', `created task id: ${result.lastInsertRowid}`);
     return this.findById(Number(result.lastInsertRowid)) as Task;
   }
@@ -74,18 +109,11 @@ export class TaskRepository implements ITaskRepository {
     if (existing === undefined) {
       return undefined;
     }
-
-    const title = data.title ?? existing.title;
-    const description = data.description ?? existing.description;
-    const assignee = data.assignee ?? existing.assignee;
-    const deadline = data.deadline ?? existing.deadline;
-    const status = data.status ?? existing.status;
-    const priority = data.priority ?? existing.priority;
-
-    db.prepare(
-      'UPDATE tasks SET title = ?, description = ?, assignee = ?, deadline = ?, status = ?, priority = ? WHERE id = ?'
-    ).run(title, description, assignee, deadline, status, priority, id);
-
+    const row = mergeUpdateData(data, existing);
+    db.prepare(UPDATE_SQL).run(
+      row.title, row.description, row.assignee,
+      row.deadline, row.status, row.priority, id
+    );
     log('repository', `updated task id: ${id}`);
     return this.findById(id);
   }
@@ -116,16 +144,8 @@ export class TaskRepository implements ITaskRepository {
 
     return {
       total: total.count,
-      byStatus: {
-        open: open.count,
-        inProgress: inProgress.count,
-        done: done.count,
-      },
-      byPriority: {
-        high: high.count,
-        medium: medium.count,
-        low: low.count,
-      },
+      byStatus: { open: open.count, inProgress: inProgress.count, done: done.count },
+      byPriority: { high: high.count, medium: medium.count, low: low.count },
     };
   }
 }

@@ -4,6 +4,40 @@ import { ITaskRepository } from './task-repository.js';
 import { isValidStatus, isValidPriority, isValidStatusTransition, isNonEmpty } from './validators.js';
 import { log } from './logger.js';
 
+interface ValidationError {
+  error: string;
+}
+
+function validateOptionalEnums(body: Record<string, unknown>): ValidationError | null {
+  if (isNonEmpty(body.status) && !isValidStatus(body.status)) {
+    return { error: 'status invalido' };
+  }
+  if (isNonEmpty(body.priority) && !isValidPriority(body.priority)) {
+    return { error: 'prioridade invalida' };
+  }
+  return null;
+}
+
+function validateCreateFields(body: Record<string, unknown>): ValidationError | null {
+  if (!isNonEmpty(body.title)) {
+    return { error: 'titulo obrigatorio' };
+  }
+  return validateOptionalEnums(body);
+}
+
+function validateUpdateFields(body: Record<string, unknown>, existingTitle: string): ValidationError | null {
+  if (!isNonEmpty(body.title ?? existingTitle)) {
+    return { error: 'titulo obrigatorio' };
+  }
+  if (!isValidStatus(body.status)) {
+    return { error: 'status invalido' };
+  }
+  if (!isValidPriority(body.priority)) {
+    return { error: 'prioridade invalida' };
+  }
+  return null;
+}
+
 function handleGetTasks(req: Request, res: Response, repository: ITaskRepository): void {
   log('handler', 'buscando todas as tarefas');
   const filter: TaskFilter = {
@@ -18,17 +52,9 @@ function handleGetTasks(req: Request, res: Response, repository: ITaskRepository
 
 function handleCreateTask(req: Request, res: Response, repository: ITaskRepository): void {
   log('handler', 'criando nova tarefa');
-  if (!isNonEmpty(req.body.title)) {
-    res.status(400).json({ error: 'titulo obrigatorio' });
-    return;
-  }
-  const { status, priority } = req.body;
-  if (isNonEmpty(status) && !isValidStatus(status)) {
-    res.status(400).json({ error: 'status invalido' });
-    return;
-  }
-  if (isNonEmpty(priority) && !isValidPriority(priority)) {
-    res.status(400).json({ error: 'prioridade invalida' });
+  const validationError = validateCreateFields(req.body);
+  if (validationError !== null) {
+    res.status(400).json(validationError);
     return;
   }
   const task = repository.create(req.body);
@@ -54,18 +80,12 @@ function handleUpdateTask(req: Request, res: Response, repository: ITaskReposito
     res.status(404).json({ error: 'tarefa nao encontrada' });
     return;
   }
-  if (!isNonEmpty(req.body.title ?? existing.title)) {
-    res.status(400).json({ error: 'titulo obrigatorio' });
-    return;
-  }
-  const status = req.body.status ?? existing.status;
-  const priority = req.body.priority ?? existing.priority;
-  if (!isValidStatus(status)) {
-    res.status(400).json({ error: 'status invalido' });
-    return;
-  }
-  if (!isValidPriority(priority)) {
-    res.status(400).json({ error: 'prioridade invalida' });
+  const body = { ...req.body };
+  body.status = body.status ?? existing.status;
+  body.priority = body.priority ?? existing.priority;
+  const validationError = validateUpdateFields(body, existing.title);
+  if (validationError !== null) {
+    res.status(400).json(validationError);
     return;
   }
   const updated = repository.update(id, req.body);

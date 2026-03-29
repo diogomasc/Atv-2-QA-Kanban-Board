@@ -4,7 +4,7 @@ module.exports = {
   parserOptions: {
     ecmaVersion: 2020,
     sourceType: "module",
-    project: "./tsconfig.json",
+    project: ["./tsconfig.json", "./tsconfig.backend.json"],
   },
   plugins: ["@typescript-eslint"],
   extends: [
@@ -34,5 +34,13 @@ module.exports = {
     node: true,
     es2020: true,
   },
-  ignorePatterns: ["dist/", "node_modules/", "vite.config.ts"],
+  ignorePatterns: [
+    "dist/",
+    "node_modules/",
+    "vite.config.ts",
+    "jest.config.cjs",
+    ".eslintrc.cjs",
+    "**/*.old.ts",
+    "backend/__tests__/",
+  ],
 };
