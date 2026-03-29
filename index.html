@@ -1,13 +1,177 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>atv-2-qa</title>
+    <title>Kanban Board</title>
+    <meta name="description" content="Gerenciador de tarefas Kanban com suporte a responsáveis, prazos e prioridades" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <div id="app"></div>
+    <header class="app-header">
+      <div class="header-inner">
+        <div class="header-title">
+          <span class="header-icon">📋</span>
+          <h1>Kanban Board</h1>
+        </div>
+        <button id="btn-open-create" class="btn-primary">+ Nova Tarefa</button>
+      </div>
+    </header>
+
+    <div id="stats-bar" class="stats-bar"></div>
+
+    <section class="filters-bar">
+      <select id="filter-status" class="filter-select">
+        <option value="">Todos os status</option>
+        <option value="open">Aberta</option>
+        <option value="in-progress">Em andamento</option>
+        <option value="done">Concluída</option>
+      </select>
+      <select id="filter-priority" class="filter-select">
+        <option value="">Todas as prioridades</option>
+        <option value="high">Alta</option>
+        <option value="medium">Média</option>
+        <option value="low">Baixa</option>
+      </select>
+      <input id="filter-assignee" type="text" class="filter-input" placeholder="Filtrar por responsável..." />
+      <button id="btn-filter" class="btn-secondary">Filtrar</button>
+      <button id="btn-clear-filter" class="btn-ghost">Limpar</button>
+    </section>
+
+    <main class="board">
+      <div class="column" id="column-open">
+        <div class="column-header open">
+          <span class="column-icon">🔵</span>
+          <h2>Aberta</h2>
+          <span class="column-count" id="count-open"></span>
+        </div>
+        <div class="column-body" id="col-open"></div>
+      </div>
+
+      <div class="column" id="column-in-progress">
+        <div class="column-header in-progress">
+          <span class="column-icon">🟡</span>
+          <h2>Em andamento</h2>
+          <span class="column-count" id="count-in-progress"></span>
+        </div>
+        <div class="column-body" id="col-in-progress"></div>
+      </div>
+
+      <div class="column" id="column-done">
+        <div class="column-header done">
+          <span class="column-icon">🟢</span>
+          <h2>Concluída</h2>
+          <span class="column-count" id="count-done"></span>
+        </div>
+        <div class="column-body" id="col-done"></div>
+      </div>
+    </main>
+
+    <!-- Modal: criar tarefa -->
+    <div id="create-modal" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-header">
+          <h2>Nova Tarefa</h2>
+          <button id="create-modal-close" class="btn-close">✕</button>
+        </div>
+        <form id="create-form" class="task-form">
+          <div class="form-group">
+            <label for="input-title">Título *</label>
+            <input id="input-title" type="text" placeholder="Título da tarefa" required />
+          </div>
+          <div class="form-group">
+            <label for="input-desc">Descrição</label>
+            <textarea id="input-desc" placeholder="Descrição detalhada..." rows="3"></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="input-assignee">Responsável</label>
+              <input id="input-assignee" type="text" placeholder="Nome do responsável" />
+            </div>
+            <div class="form-group">
+              <label for="input-deadline">Data limite</label>
+              <input id="input-deadline" type="date" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="input-status">Status</label>
+              <select id="input-status">
+                <option value="open">Aberta</option>
+                <option value="in-progress">Em andamento</option>
+                <option value="done">Concluída</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="input-priority">Prioridade</label>
+              <select id="input-priority">
+                <option value="medium">Média</option>
+                <option value="high">Alta</option>
+                <option value="low">Baixa</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Criar Tarefa</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal: editar tarefa -->
+    <div id="edit-modal" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-header">
+          <h2>Editar Tarefa</h2>
+          <button id="edit-modal-close" class="btn-close">✕</button>
+        </div>
+        <form id="edit-form" class="task-form">
+          <div class="form-group">
+            <label for="edit-title">Título *</label>
+            <input id="edit-title" type="text" placeholder="Título da tarefa" required />
+          </div>
+          <div class="form-group">
+            <label for="edit-desc">Descrição</label>
+            <textarea id="edit-desc" placeholder="Descrição detalhada..." rows="3"></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="edit-assignee">Responsável</label>
+              <input id="edit-assignee" type="text" placeholder="Nome do responsável" />
+            </div>
+            <div class="form-group">
+              <label for="edit-deadline">Data limite</label>
+              <input id="edit-deadline" type="date" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="edit-status">Status</label>
+              <select id="edit-status">
+                <option value="open">Aberta</option>
+                <option value="in-progress">Em andamento</option>
+                <option value="done">Concluída</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="edit-priority">Prioridade</label>
+              <select id="edit-priority">
+                <option value="medium">Média</option>
+                <option value="high">Alta</option>
+                <option value="low">Baixa</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
