@@ -17,58 +17,99 @@
           <span class="header-icon">📋</span>
           <h1>Kanban Board</h1>
         </div>
+        <div id="stats-bar" class="stats-bar"></div>
         <button id="btn-open-create" class="btn-primary">+ Nova Tarefa</button>
       </div>
     </header>
 
-    <div id="stats-bar" class="stats-bar"></div>
-
-    <section class="filters-bar">
-      <select id="filter-status" class="filter-select">
-        <option value="">Todos os status</option>
-        <option value="open">Aberta</option>
-        <option value="in-progress">Em andamento</option>
-        <option value="done">Concluída</option>
-      </select>
-      <select id="filter-priority" class="filter-select">
-        <option value="">Todas as prioridades</option>
-        <option value="high">Alta</option>
-        <option value="medium">Média</option>
-        <option value="low">Baixa</option>
-      </select>
-      <input id="filter-assignee" type="text" class="filter-input" placeholder="Filtrar por responsável..." />
-      <button id="btn-filter" class="btn-secondary">Filtrar</button>
-      <button id="btn-clear-filter" class="btn-ghost">Limpar</button>
-    </section>
-
-    <main class="board">
-      <div class="column" id="column-open">
-        <div class="column-header open">
-          <span class="column-icon">🔵</span>
-          <h2>Aberta</h2>
-          <span class="column-count" id="count-open"></span>
+    <div class="app-layout">
+      <aside class="filters-sidebar" id="filters-sidebar">
+        <div class="filters-sidebar-header">
+          <span class="filters-icon">🔍</span>
+          <h2>Filtros</h2>
         </div>
-        <div class="column-body" id="col-open"></div>
-      </div>
 
-      <div class="column" id="column-in-progress">
-        <div class="column-header in-progress">
-          <span class="column-icon">🟡</span>
-          <h2>Em andamento</h2>
-          <span class="column-count" id="count-in-progress"></span>
+        <div class="filter-group">
+          <label for="filter-status">Status</label>
+          <select id="filter-status" class="filter-select">
+            <option value="">Todos os status</option>
+            <option value="open">Aberta</option>
+            <option value="in-progress">Em andamento</option>
+            <option value="done">Concluída</option>
+          </select>
         </div>
-        <div class="column-body" id="col-in-progress"></div>
-      </div>
 
-      <div class="column" id="column-done">
-        <div class="column-header done">
-          <span class="column-icon">🟢</span>
-          <h2>Concluída</h2>
-          <span class="column-count" id="count-done"></span>
+        <div class="filter-group">
+          <label for="filter-priority">Prioridade</label>
+          <select id="filter-priority" class="filter-select">
+            <option value="">Todas as prioridades</option>
+            <option value="high">Alta</option>
+            <option value="medium">Média</option>
+            <option value="low">Baixa</option>
+          </select>
         </div>
-        <div class="column-body" id="col-done"></div>
-      </div>
-    </main>
+
+        <div class="filter-group">
+          <label for="filter-assignee">Responsável</label>
+          <input id="filter-assignee" type="text" class="filter-input" placeholder="Filtrar por nome..." />
+        </div>
+
+        <div class="filter-actions">
+          <button id="btn-filter" class="btn-primary btn-full">Filtrar</button>
+          <button id="btn-clear-filter" class="btn-ghost btn-full">Limpar filtros</button>
+        </div>
+
+        <div class="filter-divider"></div>
+
+        <div class="filter-legend">
+          <p class="legend-title">Prioridades</p>
+          <div class="legend-item">
+            <span class="legend-dot" style="background:#ef4444"></span>
+            <span>Alta</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background:#f59e0b"></span>
+            <span>Média</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background:#22c55e"></span>
+            <span>Baixa</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Board Principal (rolável) -->
+      <main class="board-wrapper">
+        <div class="board" id="board">
+          <div class="column" id="column-open">
+            <div class="column-header open">
+              <span class="column-icon">🔵</span>
+              <h2>Aberta</h2>
+              <span class="column-count" id="count-open"></span>
+            </div>
+            <div class="column-body" id="col-open"></div>
+          </div>
+
+          <div class="column" id="column-in-progress">
+            <div class="column-header in-progress">
+              <span class="column-icon">🟡</span>
+              <h2>Em andamento</h2>
+              <span class="column-count" id="count-in-progress"></span>
+            </div>
+            <div class="column-body" id="col-in-progress"></div>
+          </div>
+
+          <div class="column" id="column-done">
+            <div class="column-header done">
+              <span class="column-icon">🟢</span>
+              <h2>Concluída</h2>
+              <span class="column-count" id="count-done"></span>
+            </div>
+            <div class="column-body" id="col-done"></div>
+          </div>
+        </div>
+      </main>
+    </div>
 
     <!-- Modal: criar tarefa -->
     <div id="create-modal" class="modal-overlay">

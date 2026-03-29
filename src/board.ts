@@ -85,10 +85,12 @@ function buildTaskCard(task: any): HTMLElement {
     assigneeHtml = "<span class='assignee'>👤 " + task.assignee + "</span>";
   }
 
+  var priorityLabel = task.priority === "high" ? "Alta" : task.priority === "medium" ? "Média" : task.priority === "low" ? "Baixa" : task.priority;
+
   card.innerHTML =
     "<div class='card-header'>" +
     "<span class='priority-badge' style='background:" + priorityColor + "'>" +
-    task.priority +
+    priorityLabel +
     "</span>" +
     "<div class='card-actions'>" +
     "<button class='btn-edit' data-id='" + task.id + "'>✏️</button>" +
@@ -100,7 +102,12 @@ function buildTaskCard(task: any): HTMLElement {
     "<div class='card-meta'>" +
     assigneeHtml +
     deadlineHtml +
-    "</div>";
+    "</div>" +
+    "<select class='card-status-select' data-id='" + task.id + "'>" +
+    "<option value='open'" + (task.status === 'open' ? ' selected' : '') + ">🔵 Aberta</option>" +
+    "<option value='in-progress'" + (task.status === 'in-progress' ? ' selected' : '') + ">🟡 Em andamento</option>" +
+    "<option value='done'" + (task.status === 'done' ? ' selected' : '') + ">🟢 Concluída</option>" +
+    "</select>";
 
   card.addEventListener("dragstart", function (e: any) {
     console.log("drag start tarefa id: " + task.id);
@@ -111,6 +118,25 @@ function buildTaskCard(task: any): HTMLElement {
   card.addEventListener("dragend", function () {
     card.classList.remove("dragging");
   });
+
+  var statusSelect = card.querySelector(".card-status-select") as HTMLSelectElement;
+  if (statusSelect != null) {
+    statusSelect.addEventListener("mousedown", function (e: Event) {
+      e.stopPropagation();
+    });
+    statusSelect.addEventListener("change", async function (e: Event) {
+      e.stopPropagation();
+      var newStatus = (e.target as HTMLSelectElement).value;
+      if (newStatus === task.status) return;
+      console.log("mudando status do card " + task.id + " para: " + newStatus);
+      var updated = await updateTaskStatus(Number(task.id), newStatus);
+      if (updated != null) {
+        renderBoard();
+      } else {
+        alert("Erro ao atualizar status");
+      }
+    });
+  }
 
   var editBtn = card.querySelector(".btn-edit");
   var deleteBtn = card.querySelector(".btn-delete");
