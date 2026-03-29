@@ -14,8 +14,8 @@
     "moduleResolution": "node16",
 
     "outDir": "./dist-backend",
-    "rootDir": "./backend"
+    "rootDir": "."
   },
-  "include": ["backend/**/*"],
-  "exclude": ["node_modules", "dist", "src"]
+  "include": ["backend/**/*", "src/models.ts"],
+  "exclude": ["node_modules", "dist"]
 }
