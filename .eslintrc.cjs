@@ -34,5 +34,5 @@ module.exports = {
     node: true,
     es2020: true,
   },
-  ignorePatterns: ["dist/", "node_modules/", "*.js"],
+  ignorePatterns: ["dist/", "node_modules/", "vite.config.ts"],
 };
