@@ -1,17 +1,22 @@
-import express from "express";
-import cors from "cors";
-import { setupDatabase } from "./database.js";
-import { registerRoutes } from "./handlers.js";
+import express from 'express';
+import cors from 'cors';
+import { databaseService } from './database.js';
+import { TaskRepository } from './task-repository.js';
+import { registerRoutes } from './handlers.js';
+import { log } from './logger.js';
 
-var app = express();
-var PORT = 3000;
+const PORT: number = Number(process.env.PORT) || 3000;
+const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-setupDatabase();
-registerRoutes(app);
+databaseService.setup();
 
-app.listen(PORT, function () {
-  console.log("servidor rodando na porta " + PORT);
+const repository = new TaskRepository(databaseService);
+
+registerRoutes(app, repository);
+
+app.listen(PORT, (): void => {
+  log('server', `servidor rodando na porta ${PORT}`);
 });
