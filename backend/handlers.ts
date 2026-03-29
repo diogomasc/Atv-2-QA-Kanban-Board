@@ -1,329 +1,137 @@
-import { Express, Request, Response } from "express";
-import { getDb } from "./database.js";
+import { Express, Request, Response } from 'express';
+import { TaskFilter, TaskStatus } from '../src/models.js';
+import { ITaskRepository } from './task-repository.js';
+import { isValidStatus, isValidPriority, isValidStatusTransition, isNonEmpty } from './validators.js';
+import { log } from './logger.js';
 
-export function registerRoutes(app: Express): any {
-  app.get("/api/tasks", function (req: Request, res: Response) {
-    console.log("buscando todas as tarefas");
-    var db = getDb();
+function handleGetTasks(req: Request, res: Response, repository: ITaskRepository): void {
+  log('handler', 'buscando todas as tarefas');
+  const filter: TaskFilter = {
+    status: req.query.status as TaskFilter['status'],
+    priority: req.query.priority as TaskFilter['priority'],
+    assignee: req.query.assignee as TaskFilter['assignee'],
+  };
+  const tasks = repository.findAll(filter);
+  log('handler', `tarefas encontradas: ${tasks.length}`);
+  res.status(200).json(tasks);
+}
 
-    var status = req.query.status;
-    var priority = req.query.priority;
-    var assignee = req.query.assignee;
+function handleCreateTask(req: Request, res: Response, repository: ITaskRepository): void {
+  log('handler', 'criando nova tarefa');
+  if (!isNonEmpty(req.body.title)) {
+    res.status(400).json({ error: 'titulo obrigatorio' });
+    return;
+  }
+  const { status, priority } = req.body;
+  if (isNonEmpty(status) && !isValidStatus(status)) {
+    res.status(400).json({ error: 'status invalido' });
+    return;
+  }
+  if (isNonEmpty(priority) && !isValidPriority(priority)) {
+    res.status(400).json({ error: 'prioridade invalida' });
+    return;
+  }
+  const task = repository.create(req.body);
+  res.status(201).json(task);
+}
 
-    var tasks: any[] = [];
+function handleGetTaskById(req: Request, res: Response, repository: ITaskRepository): void {
+  const id = Number(req.params.id);
+  log('handler', `buscando tarefa por id: ${id}`);
+  const task = repository.findById(id);
+  if (task === undefined) {
+    res.status(404).json({ error: 'tarefa nao encontrada' });
+    return;
+  }
+  res.status(200).json(task);
+}
 
-    if (status && priority && assignee) {
-      tasks = db
-        .prepare(
-          "SELECT * FROM tasks WHERE status = ? AND priority = ? AND assignee = ?"
-        )
-        .all(status, priority, assignee);
-    } else if (status && priority) {
-      tasks = db
-        .prepare("SELECT * FROM tasks WHERE status = ? AND priority = ?")
-        .all(status, priority);
-    } else if (status && assignee) {
-      tasks = db
-        .prepare("SELECT * FROM tasks WHERE status = ? AND assignee = ?")
-        .all(status, assignee);
-    } else if (priority && assignee) {
-      tasks = db
-        .prepare("SELECT * FROM tasks WHERE priority = ? AND assignee = ?")
-        .all(priority, assignee);
-    } else if (status) {
-      tasks = db
-        .prepare("SELECT * FROM tasks WHERE status = ?")
-        .all(status);
-    } else if (priority) {
-      tasks = db
-        .prepare("SELECT * FROM tasks WHERE priority = ?")
-        .all(priority);
-    } else if (assignee) {
-      tasks = db
-        .prepare("SELECT * FROM tasks WHERE assignee = ?")
-        .all(assignee);
-    } else {
-      tasks = db.prepare("SELECT * FROM tasks").all();
-    }
+function handleUpdateTask(req: Request, res: Response, repository: ITaskRepository): void {
+  const id = Number(req.params.id);
+  log('handler', `atualizando tarefa id: ${id}`);
+  const existing = repository.findById(id);
+  if (existing === undefined) {
+    res.status(404).json({ error: 'tarefa nao encontrada' });
+    return;
+  }
+  if (!isNonEmpty(req.body.title ?? existing.title)) {
+    res.status(400).json({ error: 'titulo obrigatorio' });
+    return;
+  }
+  const status = req.body.status ?? existing.status;
+  const priority = req.body.priority ?? existing.priority;
+  if (!isValidStatus(status)) {
+    res.status(400).json({ error: 'status invalido' });
+    return;
+  }
+  if (!isValidPriority(priority)) {
+    res.status(400).json({ error: 'prioridade invalida' });
+    return;
+  }
+  const updated = repository.update(id, req.body);
+  res.status(200).json(updated);
+}
 
-    console.log("tarefas encontradas: " + tasks.length);
-    res.status(200).json(tasks);
+function handleUpdateTaskStatus(req: Request, res: Response, repository: ITaskRepository): void {
+  const id = Number(req.params.id);
+  log('handler', `atualizando status da tarefa id: ${id}`);
+  const task = repository.findById(id);
+  if (task === undefined) {
+    res.status(404).json({ error: 'tarefa nao encontrada' });
+    return;
+  }
+  const newStatus: unknown = req.body.status;
+  if (!isValidStatus(newStatus)) {
+    res.status(400).json({ error: 'status invalido' });
+    return;
+  }
+  const from: TaskStatus = task.status;
+  if (!isValidStatusTransition(from, newStatus)) {
+    res.status(400).json({ error: 'transicao de status invalida' });
+    return;
+  }
+  const updated = repository.updateStatus(id, newStatus);
+  res.status(200).json(updated);
+}
+
+function handleDeleteTask(req: Request, res: Response, repository: ITaskRepository): void {
+  const id = Number(req.params.id);
+  log('handler', `removendo tarefa id: ${id}`);
+  const task = repository.findById(id);
+  if (task === undefined) {
+    res.status(404).json({ error: 'tarefa nao encontrada' });
+    return;
+  }
+  repository.remove(id);
+  res.status(200).json({ message: 'tarefa removida com sucesso' });
+}
+
+function handleGetStats(_req: Request, res: Response, repository: ITaskRepository): void {
+  log('handler', 'buscando estatisticas');
+  const stats = repository.getStats();
+  res.status(200).json(stats);
+}
+
+export function registerRoutes(app: Express, repository: ITaskRepository): void {
+  app.get('/api/tasks', (req: Request, res: Response) => {
+    handleGetTasks(req, res, repository);
   });
-
-  app.post("/api/tasks", function (req: Request, res: Response) {
-    console.log("criando nova tarefa", req.body);
-    var db = getDb();
-
-    var title = req.body.title;
-    var description = req.body.description;
-    var assignee = req.body.assignee;
-    var deadline = req.body.deadline;
-    var status = req.body.status;
-    var priority = req.body.priority;
-
-    if (title == null || title == "" || title == undefined) {
-      res.status(400).json({ error: "titulo obrigatorio" });
-      return;
-    }
-
-    if (
-      status != "open" &&
-      status != "in-progress" &&
-      status != "done" &&
-      status != null &&
-      status != undefined
-    ) {
-      res.status(400).json({ error: "status invalido" });
-      return;
-    }
-
-    if (
-      priority != "low" &&
-      priority != "medium" &&
-      priority != "high" &&
-      priority != null &&
-      priority != undefined
-    ) {
-      res.status(400).json({ error: "prioridade invalida" });
-      return;
-    }
-
-    var finalStatus = status;
-    if (status == null || status == undefined || status == "") {
-      finalStatus = "open";
-    }
-
-    var finalPriority = priority;
-    if (priority == null || priority == undefined || priority == "") {
-      finalPriority = "medium";
-    }
-
-    var createdAt = new Date().toISOString();
-
-    var result = db
-      .prepare(
-        "INSERT INTO tasks (title, description, assignee, deadline, status, priority, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
-      )
-      .run(
-        title,
-        description || "",
-        assignee || "",
-        deadline || "",
-        finalStatus,
-        finalPriority,
-        createdAt
-      );
-
-    var task = db
-      .prepare("SELECT * FROM tasks WHERE id = ?")
-      .get(result.lastInsertRowid);
-
-    console.log("tarefa criada com id: " + result.lastInsertRowid);
-    res.status(201).json(task);
+  app.post('/api/tasks', (req: Request, res: Response) => {
+    handleCreateTask(req, res, repository);
   });
-
-  app.get("/api/tasks/:id", function (req: Request, res: Response) {
-    console.log("buscando tarefa por id: " + req.params.id);
-    var db = getDb();
-
-    var id = req.params.id;
-    var task = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
-
-    if (task == null || task == undefined) {
-      console.log("tarefa nao encontrada");
-      res.status(404).json({ error: "tarefa nao encontrada" });
-      return;
-    }
-
-    res.status(200).json(task);
+  app.get('/api/tasks/:id', (req: Request, res: Response) => {
+    handleGetTaskById(req, res, repository);
   });
-
-  app.put("/api/tasks/:id", function (req: Request, res: Response) {
-    console.log("atualizando tarefa id: " + req.params.id, req.body);
-    var db = getDb();
-
-    var id = req.params.id;
-    var task: any = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
-
-    if (task == null || task == undefined) {
-      res.status(404).json({ error: "tarefa nao encontrada" });
-      return;
-    }
-
-    var title = req.body.title != undefined ? req.body.title : task.title;
-    var description =
-      req.body.description != undefined
-        ? req.body.description
-        : task.description;
-    var assignee =
-      req.body.assignee != undefined ? req.body.assignee : task.assignee;
-    var deadline =
-      req.body.deadline != undefined ? req.body.deadline : task.deadline;
-    var priority =
-      req.body.priority != undefined ? req.body.priority : task.priority;
-    var status = req.body.status != undefined ? req.body.status : task.status;
-
-    if (title == null || title == "" || title == undefined) {
-      res.status(400).json({ error: "titulo obrigatorio" });
-      return;
-    }
-
-    if (
-      status != "open" &&
-      status != "in-progress" &&
-      status != "done"
-    ) {
-      res.status(400).json({ error: "status invalido" });
-      return;
-    }
-
-    if (
-      priority != "low" &&
-      priority != "medium" &&
-      priority != "high"
-    ) {
-      res.status(400).json({ error: "prioridade invalida" });
-      return;
-    }
-
-    db.prepare(
-      "UPDATE tasks SET title = ?, description = ?, assignee = ?, deadline = ?, status = ?, priority = ? WHERE id = ?"
-    ).run(title, description, assignee, deadline, status, priority, id);
-
-    var updated: any = db
-      .prepare("SELECT * FROM tasks WHERE id = ?")
-      .get(id);
-
-    console.log("tarefa atualizada");
-    res.status(200).json(updated);
+  app.put('/api/tasks/:id', (req: Request, res: Response) => {
+    handleUpdateTask(req, res, repository);
   });
-
-  app.patch("/api/tasks/:id/status", function (req: Request, res: Response) {
-    console.log("atualizando status da tarefa id: " + req.params.id);
-    var db = getDb();
-
-    var id = req.params.id;
-    var newStatus = req.body.status;
-
-    var task: any = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
-
-    if (task == null || task == undefined) {
-      res.status(404).json({ error: "tarefa nao encontrada" });
-      return;
-    }
-
-    if (
-      newStatus != "open" &&
-      newStatus != "in-progress" &&
-      newStatus != "done"
-    ) {
-      res.status(400).json({ error: "status invalido" });
-      return;
-    }
-
-    var allowed = false;
-    if (task.status == "open" && newStatus == "in-progress") {
-      allowed = true;
-    }
-    if (task.status == "open" && newStatus == "done") {
-      allowed = true;
-    }
-    if (task.status == "in-progress" && newStatus == "done") {
-      allowed = true;
-    }
-    if (task.status == "in-progress" && newStatus == "open") {
-      allowed = true;
-    }
-    if (task.status == "done" && newStatus == "open") {
-      allowed = true;
-    }
-    if (task.status == "done" && newStatus == "in-progress") {
-      allowed = true;
-    }
-    if (newStatus == task.status) {
-      allowed = false;
-    }
-
-    if (!allowed) {
-      res.status(400).json({ error: "transicao de status invalida" });
-      return;
-    }
-
-    db.prepare("UPDATE tasks SET status = ? WHERE id = ?").run(newStatus, id);
-
-    var updated: any = db
-      .prepare("SELECT * FROM tasks WHERE id = ?")
-      .get(id);
-
-    console.log("status atualizado para: " + newStatus);
-    res.status(200).json(updated);
+  app.patch('/api/tasks/:id/status', (req: Request, res: Response) => {
+    handleUpdateTaskStatus(req, res, repository);
   });
-
-  app.delete("/api/tasks/:id", function (req: Request, res: Response) {
-    console.log("removendo tarefa id: " + req.params.id);
-    var db = getDb();
-
-    var id = req.params.id;
-    var task = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
-
-    if (task == null || task == undefined) {
-      res.status(404).json({ error: "tarefa nao encontrada" });
-      return;
-    }
-
-    db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
-
-    console.log("tarefa removida com sucesso");
-    res.status(200).json({ message: "tarefa removida com sucesso" });
+  app.delete('/api/tasks/:id', (req: Request, res: Response) => {
+    handleDeleteTask(req, res, repository);
   });
-
-  app.get("/api/stats", function (req: Request, res: Response) {
-    console.log("buscando estatisticas");
-    var db = getDb();
-
-    var total: any = db
-      .prepare("SELECT COUNT(*) as count FROM tasks")
-      .get();
-    var open: any = db
-      .prepare("SELECT COUNT(*) as count FROM tasks WHERE status = 'open'")
-      .get();
-    var inProgress: any = db
-      .prepare(
-        "SELECT COUNT(*) as count FROM tasks WHERE status = 'in-progress'"
-      )
-      .get();
-    var done: any = db
-      .prepare("SELECT COUNT(*) as count FROM tasks WHERE status = 'done'")
-      .get();
-    var high: any = db
-      .prepare(
-        "SELECT COUNT(*) as count FROM tasks WHERE priority = 'high'"
-      )
-      .get();
-    var medium: any = db
-      .prepare(
-        "SELECT COUNT(*) as count FROM tasks WHERE priority = 'medium'"
-      )
-      .get();
-    var low: any = db
-      .prepare("SELECT COUNT(*) as count FROM tasks WHERE priority = 'low'")
-      .get();
-
-    var stats = {
-      total: total.count,
-      byStatus: {
-        open: open.count,
-        inProgress: inProgress.count,
-        done: done.count,
-      },
-      byPriority: {
-        high: high.count,
-        medium: medium.count,
-        low: low.count,
-      },
-    };
-
-    console.log("estatisticas: " + JSON.stringify(stats));
-    res.status(200).json(stats);
+  app.get('/api/stats', (req: Request, res: Response) => {
+    handleGetStats(req, res, repository);
   });
 }
