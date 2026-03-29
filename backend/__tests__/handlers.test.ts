@@ -4,8 +4,8 @@ import { IDatabaseService } from '../database';
 import { ITaskRepository } from '../task-repository';
 import { Request, Response } from 'express';
 
-// We test handlers indirectly through the repository since handlers
-// are thin wrappers. Direct handler testing uses mock req/res.
+// Testamos os handlers indiretamente através do repositório, já que os
+// handlers são apenas invólucros finos. O teste direto de handlers utiliza mock req/res.
 
 function createTestRepo(): ITaskRepository {
   const db = new Database(':memory:');
